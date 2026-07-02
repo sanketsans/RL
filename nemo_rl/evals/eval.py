@@ -37,7 +37,7 @@ from nemo_rl.environments.vlm_environment import VLMEnvConfig
 from nemo_rl.models.generation.interfaces import GenerationConfig
 from nemo_rl.models.generation.vllm import VllmGeneration
 from nemo_rl.models.policy import TokenizerConfig
-from nemo_rl.utils.logger import Logger, LoggerConfig
+from nemo_rl.utils.logger import LoggerConfig
 
 # ===============================================================================
 # Configuration
@@ -306,13 +306,18 @@ def run_env_eval(vllm_generation, dataloader, env, master_config, logger=None):
         use_async = False
     asyncio.run(
         _run_env_eval_impl(
-            vllm_generation, dataloader, env, master_config, use_async=use_async
+            vllm_generation,
+            dataloader,
+            env,
+            master_config,
+            use_async=use_async,
+            logger=logger,
         )
     )
 
 
 async def _run_env_eval_impl(
-    vllm_generation, dataloader, env, master_config, use_async=False
+    vllm_generation, dataloader, env, master_config, use_async=False, logger=None
 ):
     """Unified implementation for both sync and async evaluation."""
     # Extract for easier access
@@ -596,8 +601,6 @@ def _save_results_summary(
     with open(results_path, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"\n✓ Results summary saved to: {results_path}")
-    print(f"  Total samples: {len(evaluation_data)}")
-    print(f"  File size: {os.path.getsize(eval_data_path) / 1024 / 1024:.2f} MB")
 
 
 def _print_results(
