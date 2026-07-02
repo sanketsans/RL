@@ -29,6 +29,7 @@ from nemo_rl.environments.utils import create_env
 from nemo_rl.evals.eval import MasterConfig, run_env_eval, setup
 from nemo_rl.models.generation import configure_generation_config
 from nemo_rl.utils.config import load_config
+from nemo_rl.utils.logger import Logger
 
 
 def parse_args():
@@ -47,18 +48,19 @@ def parse_args():
     return args, overrides
 
 
-def setup_data(tokenizer, data_config, env_configs):
+def setup_data(tokenizer, data_config, env_configs, is_multimodal=False):
     print("Setting up data...")
 
     # load dataset
     base_dataset = load_eval_dataset(data_config)
     rekeyed_ds = base_dataset.rekeyed_ds
 
-    # Determine env from config: use explicit env_name if provided,
-    # otherwise fall back to the single key in env_configs.
+    # Mirrors nemo_rl/data/utils.py: use data.env_name to look up the env
+    # config block and determine the registered environment class.
     env_key = next(iter(env_configs))
     env_name = data_config.get("env_name", env_key)
-    env = create_env(env_name=env_name, env_config=env_configs[env_key])
+    registered_env_name = "vlm" if is_multimodal else env_name
+    env = create_env(env_name=registered_env_name, env_config=env_configs[env_name])
 
     dataset = AllTaskProcessedDataset(
         dataset=rekeyed_ds,
@@ -98,6 +100,26 @@ def main():
     print("Final config:")
     pprint.pprint(config)
 
+    # Build a logger if a logger config with wandb is present. Evals are marked
+    # with an "_eval" run-name suffix so they are easy to spot in W&B. If wandb
+    # is enabled but no API key is available, disable it rather than crashing the
+    # whole benchmark suite.
+    logger = None
+    logger_cfg = getattr(config, "logger", None)
+    if logger_cfg is not None and logger_cfg.get("wandb_enabled"):
+        if os.environ.get("WANDB_API_KEY"):
+            wandb_cfg = logger_cfg.setdefault("wandb", {})
+            run_name = wandb_cfg.get("name") or "eval"
+            if not run_name.endswith("_eval"):
+                run_name = f"{run_name}_eval"
+            wandb_cfg["name"] = run_name
+            logger = Logger(logger_cfg)
+        else:
+            print(
+                "⚠️ logger.wandb_enabled is true but WANDB_API_KEY is not set; "
+                "skipping W&B logging for this eval."
+            )
+
     # Init ray
     init_ray()
 
@@ -113,7 +135,7 @@ def main():
         dataset,
         env,
         tokenizer,
-    ) = setup_data(tokenizer, config.data, config.env)
+    ) = setup_data(tokenizer, config.data, config.env, is_multimodal=is_multimodal)
 
     # Setup
     (
@@ -128,6 +150,7 @@ def main():
         dataloader,
         env,
         master_config,
+        logger=logger,
     )
 
 
