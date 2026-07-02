@@ -1342,9 +1342,9 @@ def dynamic_sampling(
             dynamic_sampling_metrics["dynamic_sampling_num_all_incorrect_prompts"] = (
                 num_all_incorrect_prompts
             )
-            dynamic_sampling_metrics[
-                "dynamic_sampling_frac_all_incorrect_prompts"
-            ] = (num_all_incorrect_prompts / num_prompts if num_prompts > 0 else 0.0)
+            dynamic_sampling_metrics["dynamic_sampling_frac_all_incorrect_prompts"] = (
+                num_all_incorrect_prompts / num_prompts if num_prompts > 0 else 0.0
+            )
 
             keep_prompt_indices = torch.arange(
                 len(non_zero_std_mask), device=std.device
@@ -3511,9 +3511,7 @@ def validate(
                         if m.get("role") == "assistant"
                     )[:MAX_TEXT_CHARS]
                     reward = float(total_rewards[i])
-                    sample_rows.append(
-                        [step, prompt, completion, reward, reward > 0]
-                    )
+                    sample_rows.append([step, prompt, completion, reward, reward > 0])
                 logger.log_table(
                     columns=["step", "prompt", "completion", "reward", "correct"],
                     rows=sample_rows,
