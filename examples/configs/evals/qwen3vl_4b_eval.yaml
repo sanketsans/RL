@@ -28,7 +28,7 @@ generation:
   top_p: 0.95
   top_k: -1
   vllm_cfg:
-    tensor_parallel_size: 1 # 4B fits on a single GPU
+    tensor_parallel_size: 1 # 4B fits on a single L40S (48GB)
     pipeline_parallel_size: 1
     expert_parallel_size: 1
     max_model_len: 16384 # room for CoT on AIME/MATH; max_new_tokens inherits this
@@ -45,5 +45,5 @@ data:
   dataset_name: "math500" # default; overridden per benchmark by the runner
 
 cluster:
-  gpus_per_node: 8
+  gpus_per_node: 1 # L40S is 1 GPU/node on this cluster
   num_nodes: 1

@@ -31,16 +31,17 @@ generation:
   top_p: 0.95
   top_k: -1 # -1 disables top-k
   vllm_cfg:
-    # 30B MoE on a full 8xH200 node; TP=8 maximizes KV-cache room for the long
-    # reasoning traces. Lower to 4 if you want to leave GPUs free.
-    tensor_parallel_size: 8
-    pipeline_parallel_size: 1
+    # 30B (~60GB BF16) split across 2 L40S (48GB each) via PIPELINE parallelism.
+    # L40S is 1 GPU/node here, so the 2 GPUs are on separate nodes — pp is
+    # network-tolerant (only activations cross nodes), tp is not. tp=1, pp=2.
+    tensor_parallel_size: 1
+    pipeline_parallel_size: 2
     expert_parallel_size: 1
-    # Long context for reasoning outputs. max_new_tokens inherits this from eval.yaml.
-    max_model_len: 32768
-    # Lowered from 0.9 for warm-up headroom, and enforce_eager=true skips CUDA
-    # graph capture, which is where the first launch's vLLM worker crashed
-    # (ActorDiedError during compile_or_warm_up_model). Revisit once it runs.
+    # Trimmed from 32768: ~30GB weights/GPU leaves limited room for KV cache on
+    # a 48GB L40S. Raise again if it fits.
+    max_model_len: 16384
+    # enforce_eager=true skips CUDA-graph capture (crashed the first H200 launch)
+    # and lowers peak VRAM, which matters more on the smaller L40S.
     gpu_memory_utilization: 0.85
     enforce_eager: true
 
@@ -57,5 +58,5 @@ data:
   dataset_name: "math500" # default; overridden per benchmark by the runner
 
 cluster:
-  gpus_per_node: 8
-  num_nodes: 1
+  gpus_per_node: 1 # L40S is 1 GPU/node on this cluster
+  num_nodes: 2 # 2 nodes x 1 L40S = 2 GPUs for pipeline_parallel_size=2
