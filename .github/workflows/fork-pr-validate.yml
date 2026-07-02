@@ -1,0 +1,44 @@
+name: Fork PR Validation
+
+# Lightweight validation for PRs on this personal fork. Intentionally simple:
+# lint + format + a Python syntax compile. No GPU, no torch/vllm/ray install,
+# so it runs in well under a minute. This is NOT the upstream NVIDIA-NeMo/RL CI.
+
+on:
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs when new commits are pushed to the same PR.
+concurrency:
+  group: fork-pr-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Ruff lint & format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Pin to the same ruff the repo uses (see pyproject.toml / .pre-commit-config).
+      - name: Install ruff
+        run: pip install ruff==0.9.9
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+
+  syntax:
+    name: Python syntax compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Byte-compile all sources to catch syntax errors without importing the
+      # heavy runtime deps (torch/vllm/ray).
+      - name: Compile sources
+        run: python -m compileall -q nemo_rl examples
